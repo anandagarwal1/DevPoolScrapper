@@ -5,19 +5,19 @@ using System.Text;
 
 namespace PoolScrapper
 {
-    public class GeoCoordinate
+    public class GeoCoordinateMap
     {
-        private double p1;
-        private double p2;
+        public double p1;
+        public double p2;
 
-        public GeoCoordinate(double p1, double p2)
+        public GeoCoordinateMap(double p1, double p2)
         {
             // TODO: Complete member initialization
             this.p1 = p1;
             this.p2 = p2;
         }
 
-        public GeoCoordinate()
+        public GeoCoordinateMap()
         {
             // TODO: Complete member initialization
         }
