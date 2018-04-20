@@ -16,6 +16,8 @@ using System.Threading.Tasks;
 using Google.GData.Client;
 using Google.GData.Spreadsheets;
 using Data = Google.Apis.Sheets.v4.Data;
+using System.Xml;
+using System.Device.Location;
 
 namespace PoolScrapper
 {
@@ -215,7 +217,7 @@ namespace PoolScrapper
 
                                                             string newRange = GetRange(service, sheetName);
 
-                                                            UpdatGoogleSheetinBatch(objNewRecords, "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM", newRange, service);
+                                                            AppendGoogleSheetinBatch(objNewRecords, "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM", newRange, service);
 
                                                             if (header == true)
                                                             {
@@ -322,10 +324,7 @@ namespace PoolScrapper
                 response = stream.ReadToEnd();
                 stream.Dispose();
             }
-            catch (Exception ex)
-            {
-
-            }
+            catch (Exception ex){}
             return response;
         }
 
@@ -431,7 +430,6 @@ namespace PoolScrapper
 
             //int currentCount = values.Count() + 1;
             int i = 0;
-            int fieldCnt = 0;
             if (values != null && values.Count > 0)
             {
                 Console.WriteLine("Name, Major");
@@ -467,13 +465,23 @@ namespace PoolScrapper
             return obj;
         }
 
-        private static void UpdatGoogleSheetinBatch(IList<IList<Object>> values, string spreadsheetId, string newRange, SheetsService service)
+        private static void AppendGoogleSheetinBatch(IList<IList<Object>> values, string spreadsheetId, string newRange, SheetsService service)
         {
             SpreadsheetsResource.ValuesResource.AppendRequest request =
                service.Spreadsheets.Values.Append(new ValueRange() { Values = values }, spreadsheetId, newRange);
             request.InsertDataOption = SpreadsheetsResource.ValuesResource.AppendRequest.InsertDataOptionEnum.INSERTROWS;
             request.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
             var response = request.Execute();
+        }
+
+        private static void UpdatGoogleSheetinBatch(IList<IList<Object>> values, string spreadsheetId, string newRange, SheetsService service)
+        {
+            ValueRange valueRange = new ValueRange();
+            valueRange.Values = values;
+
+            SpreadsheetsResource.ValuesResource.UpdateRequest update = service.Spreadsheets.Values.Update(valueRange, spreadsheetId, newRange);
+            update.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+            UpdateValuesResponse result2 = update.Execute();
         }
 
         #region Method to download kml file from Google Map
@@ -495,7 +503,7 @@ namespace PoolScrapper
         }
         #endregion
 
-        public static GeoCoordinate GetPolygonCentroid(IList<GeoCoordinate> geoCoordinates)
+        public static GeoCoordinateMap GetPolygonCentroid(IList<GeoCoordinateMap> geoCoordinates)
         {
             GetIBITestMapData();
             if (geoCoordinates.Count == 1)
@@ -527,7 +535,195 @@ namespace PoolScrapper
             var centralSquareRoot = Math.Sqrt(x * x + y * y);
             var centralLatitude = Math.Atan2(z, centralSquareRoot);
 
-            return new GeoCoordinate(centralLatitude * 180 / Math.PI, centralLongitude * 180 / Math.PI);
+            return new GeoCoordinateMap(centralLatitude * 180 / Math.PI, centralLongitude * 180 / Math.PI);
         }
+
+        public static void GetFieldMatrix()
+        {
+            GetIBITestMapData();
+            var ibiMapFile = System.IO.Path.GetFullPath("IBIMapData.kml").ToString();
+
+            FileStream fs = new FileStream(ibiMapFile, FileMode.Open, FileAccess.Read);
+
+            List<FieldCordinates> fc = new List<FieldCordinates>();
+            List<FieldCordinates> fieldCoordRes = new List<FieldCordinates>();
+            FieldCordinates fcObj = new FieldCordinates();
+            #region Method 1
+            //XmlDataDocument xmldoc = new XmlDataDocument();
+            //XmlNodeList xmlnode;
+            //string str = "";
+            //xmldoc.Load(fs);
+            //xmlnode = xmldoc.GetElementsByTagName("Folder");
+            //foreach (XmlNode node in xmlnode)
+            //{
+            //    Console.WriteLine(node.SelectSingleNode("name").InnerText);
+            //    Console.WriteLine(node.SelectSingleNode("Polygon").InnerText);
+            //    Console.WriteLine(node.SelectSingleNode("coordinates").InnerText);
+            //}
+
+            //xmlnode = xmldoc.GetElementsByTagName("Folder");
+            //for (int i = 0; i <= xmlnode.Count - 1; i++)
+            //{
+            //    xmlnode[i].ChildNodes.Item(0).InnerText.Trim();
+            //    str = xmlnode[i].ChildNodes.Item(0).InnerText.Trim() + "  " + xmlnode[i].ChildNodes.Item(1).InnerText.Trim() + "  " + xmlnode[i].ChildNodes.Item(2).InnerText.Trim();
+
+            //}
+            #endregion
+
+            try
+            {
+                // new xdoc instance 
+                XmlDocument xDoc = new XmlDocument();
+
+                //load up the xml from the location 
+                xDoc.Load(fs);
+
+                // cycle through each child noed
+                XmlNodeList xmlnode;
+                xmlnode = xDoc.GetElementsByTagName("Folder");
+                foreach (XmlNode node in xmlnode)
+                {
+                    // first node is the url ... have to go to nexted loc node 
+                    foreach (XmlNode locNode in node)
+                    {
+                        // thereare a couple child nodes here so only take data from node named loc 
+                        if (locNode.Name == "Placemark")
+                        {
+                            fcObj = new FieldCordinates();
+                            fcObj.FieldName = locNode.FirstChild.InnerText.Trim();
+                            Console.WriteLine(locNode.FirstChild.InnerText.Trim());
+                            // get the content of the loc node 
+                            //XmlNodeList xnl2 = xDoc.SelectNodes("/Folder/Placemark/Polygon/outerBoundaryIs/LinearRing");
+
+                            if ((locNode.FirstChild.InnerText.Trim().ToLower()).IndexOf("field") != -1)
+                            {
+                                foreach (XmlNode childNode in locNode)
+                                {
+                                    //var name = childNode.GetElementsByTagName("name").ToString();
+                                    //var cordinates = coordinates
+                                    Console.WriteLine(childNode.Name);
+
+                                    if (childNode.Name == "Polygon")
+                                    {
+                                        foreach (XmlNode cn in childNode)
+                                        {
+                                            foreach (XmlNode ob in cn)
+                                            {
+                                                foreach (XmlNode lr in ob)
+                                                {
+                                                    if (lr.LocalName == "coordinates")
+                                                    {
+                                                        Console.WriteLine(lr.InnerText.Trim());
+                                                        fcObj.Coordinates = lr.InnerText.Trim();
+                                                        fc.Add(fcObj);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Console.WriteLine(fc);
+                    }
+                }
+                foreach (var fieldObj in fc)
+                {
+                    fieldObj.latLong = MapFieldWithCoordinates(fieldObj);
+                    fieldCoordRes.Add(fieldObj);
+                }
+
+                //The belowe method calculate distance between two fields using its coordinates
+                CalculateDistanceBetweenTwoFields(fieldCoordRes);
+                Console.WriteLine("a");
+            }
+            catch (Exception ex) { }
+        }
+
+        public static List<GeoCoordinateMap> MapFieldWithCoordinates(FieldCordinates fc)
+        {
+            string[] lines, coords;
+            GeoCoordinateMap geoCoord = new GeoCoordinateMap();
+            List<GeoCoordinateMap> geoCoordList = new List<GeoCoordinateMap>();
+            try
+            {
+                lines = fc.Coordinates.Split('\n');
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    geoCoord = new GeoCoordinateMap();
+                    coords = lines[i].Split(',');
+                    geoCoord.Latitude = Convert.ToDouble(coords[1].Trim());
+                    geoCoord.Longitude = Convert.ToDouble(coords[0].Trim());
+                    geoCoordList.Add(geoCoord);
+                }
+            }
+            catch (Exception ex) { }
+            return geoCoordList;
+        }
+
+        private static void CalculateDistanceBetweenTwoFields(List<FieldCordinates> fieldCoordRes)
+        {
+            int [,] fieldDistance = new int[fieldCoordRes.Count(), fieldCoordRes.Count()];
+            string sheetName = "Field Matrix";
+
+            var service = CreateGoogleSheets(sheetName);
+            try
+            {
+                for (int i = 0; i < fieldCoordRes.Count(); i++)
+                {
+                    var getCentroidA = GetPolygonCentroid(fieldCoordRes[i].latLong);
+                    var sCoord = new GeoCoordinate(getCentroidA.p1, getCentroidA.p2);
+                    for (int j = 0; j < fieldCoordRes.Count(); j++)
+                    {
+                        int distance;
+                        if (i != j)
+                        {
+                            if (j > i)
+                            {
+                                var getCentroidB = GetPolygonCentroid(fieldCoordRes[j].latLong);
+                                var eCoord = new GeoCoordinate(getCentroidB.p1, getCentroidB.p2);
+                                distance = Convert.ToInt32(sCoord.GetDistanceTo(eCoord));
+                                fieldDistance[i, j] = distance;
+                                fieldDistance[j, i] = distance;
+                            }
+                        }
+                        else if (i == j)
+                        {
+                            fieldDistance[i, j] = 0;
+                        }
+                    }
+                }
+
+                #region Update Sheet Data For Field Matrix Sheet
+                List<IList<Object>> objNewRecords = new List<IList<Object>>();
+
+                IList<Object> obj = new List<Object>();
+
+                for (int i = 0; i < fieldCoordRes.Count(); i++)
+                {
+                    obj = new List<Object>();
+                    for (int j = 0; j < fieldCoordRes.Count() ; j++ )
+                        obj.Add(fieldDistance[i,j]);
+
+                    objNewRecords.Add(obj);
+
+                }
+
+                //string newRange = GetRange(service, sheetName);
+
+                UpdatGoogleSheetinBatch(objNewRecords, "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM", sheetName+"!B3:AI36", service);
+                #endregion
+
+            }
+            catch (Exception ex) { }
+            Console.WriteLine(fieldDistance);
+        }
+    }
+
+    public class FieldCordinates
+    {
+        public string FieldName { get; set; }
+        public string Coordinates { get; set; }
+        public List<GeoCoordinateMap> latLong { get; set; }
     }
 }
