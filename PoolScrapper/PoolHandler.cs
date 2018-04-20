@@ -23,6 +23,7 @@ namespace PoolScrapper
 {
     public class PoolHandler
     {
+        public static string spreadSheetId = "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM";
         public static void GetPoolData()
         {
             string response = string.Empty;
@@ -217,7 +218,7 @@ namespace PoolScrapper
 
                                                             string newRange = GetRange(service, sheetName);
 
-                                                            AppendGoogleSheetinBatch(objNewRecords, "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM", newRange, service);
+                                                            AppendGoogleSheetinBatch(objNewRecords, spreadSheetId, newRange, service);
 
                                                             if (header == true)
                                                             {
@@ -246,12 +247,12 @@ namespace PoolScrapper
         private static void formatHeaderField(SheetsService sheetsService, string sheetName)
         {
             // The ID of the spreadsheet to update.
-            string spreadsheetId = "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM";  // TODO: Update placeholder value.
+            // TODO: Update placeholder value.
 
             BatchUpdateSpreadsheetRequest bussr = new BatchUpdateSpreadsheetRequest();
 
             //get sheet id by sheet name
-            Spreadsheet spr = sheetsService.Spreadsheets.Get(spreadsheetId).Execute();
+            Spreadsheet spr = sheetsService.Spreadsheets.Get(spreadSheetId).Execute();
             Sheet sh = spr.Sheets.Where(s => s.Properties.Title == sheetName).FirstOrDefault();
             int sheetId = (int)sh.Properties.SheetId;
 
@@ -298,8 +299,8 @@ namespace PoolScrapper
             //// TODO: Assign values to desired properties of `requestBody`:
             bussr.Requests = new List<Request>();
             bussr.Requests.Add(updateCellsRequest);
-            
-            SpreadsheetsResource.BatchUpdateRequest request = sheetsService.Spreadsheets.BatchUpdate(bussr, spreadsheetId);
+
+            SpreadsheetsResource.BatchUpdateRequest request = sheetsService.Spreadsheets.BatchUpdate(bussr, spreadSheetId);
 
             //// To execute asynchronously in an async method, replace `request.Execute()` as shown:
             Data.BatchUpdateSpreadsheetResponse response = request.Execute();
@@ -358,7 +359,6 @@ namespace PoolScrapper
                     ApplicationName = ApplicationName,
                 });
 
-                String spreadsheetId = "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM";
                 String range = "Class Data!A2:E";
 
                 #region Add sheet into existing spreadsheet
@@ -380,7 +380,7 @@ namespace PoolScrapper
                 //batchUpdateRequest.Execute();
                 #endregion
 
-                SpreadsheetsResource.ValuesResource.GetRequest request = service.Spreadsheets.Values.Get(spreadsheetId, range);
+                SpreadsheetsResource.ValuesResource.GetRequest request = service.Spreadsheets.Values.Get(spreadSheetId, range);
 
                 return service;
 
@@ -399,11 +399,10 @@ namespace PoolScrapper
         protected static string GetRange(SheetsService service, string sheetName)
         {
             // Define request parameters.
-            String spreadsheetId = "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM";
             String range = sheetName + "!A:A";
 
             SpreadsheetsResource.ValuesResource.GetRequest getRequest =
-                       service.Spreadsheets.Values.Get(spreadsheetId, range);
+                       service.Spreadsheets.Values.Get(spreadSheetId, range);
 
             ValueRange getResponse = getRequest.Execute();
             IList<IList<Object>> getValues = getResponse.Values;
@@ -421,10 +420,10 @@ namespace PoolScrapper
 
         private static IList<Object> GenerateData(MatchMasterModel master, SheetsService service)
         {
+            #region Duplicay Removal Section
             string range = GetRange(service, "Sheet_17_04_2018_12_25");
-            String spreadsheetId = "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM";
-            var request = service.Spreadsheets.Values.Get(spreadsheetId, "Sheet_17_04_2018_12_25!A1:J55");
-
+            var request = service.Spreadsheets.Values.Get(spreadSheetId, "Sheet_17_04_2018_12_25!A1:J55");
+            
             ValueRange response = request.Execute();
             IList<IList<Object>> values = response.Values;
 
@@ -432,7 +431,6 @@ namespace PoolScrapper
             int i = 0;
             if (values != null && values.Count > 0)
             {
-                Console.WriteLine("Name, Major");
                 foreach (var row in values)
                 {
                     if (row[0] == master.matchDate && row[1] == master.roundno && row[2] == master.fieldno && row[3] == master.divisionName && row[4] == master.poolName && row[5] == master.teamA && row[6] == master.versus && row[7] == master.teamB)
@@ -443,6 +441,7 @@ namespace PoolScrapper
             {
                 Console.WriteLine("No data found.");
             }
+            #endregion
 
             IList<Object> obj = new List<Object>();
 
@@ -459,16 +458,13 @@ namespace PoolScrapper
                 obj.Add(master.halveA);
                 obj.Add(master.halveB);
             }
-
             //objNewRecords.Add(obj);
-
             return obj;
         }
 
         private static void AppendGoogleSheetinBatch(IList<IList<Object>> values, string spreadsheetId, string newRange, SheetsService service)
         {
-            SpreadsheetsResource.ValuesResource.AppendRequest request =
-               service.Spreadsheets.Values.Append(new ValueRange() { Values = values }, spreadsheetId, newRange);
+            SpreadsheetsResource.ValuesResource.AppendRequest request = service.Spreadsheets.Values.Append(new ValueRange() { Values = values }, spreadsheetId, newRange);
             request.InsertDataOption = SpreadsheetsResource.ValuesResource.AppendRequest.InsertDataOptionEnum.INSERTROWS;
             request.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
             var response = request.Execute();
@@ -503,9 +499,9 @@ namespace PoolScrapper
         }
         #endregion
 
+        #region Method to get centroid of Polygon
         public static GeoCoordinateMap GetPolygonCentroid(IList<GeoCoordinateMap> geoCoordinates)
         {
-            GetIBITestMapData();
             if (geoCoordinates.Count == 1)
             {
                 return geoCoordinates.Single();
@@ -537,39 +533,23 @@ namespace PoolScrapper
 
             return new GeoCoordinateMap(centralLatitude * 180 / Math.PI, centralLongitude * 180 / Math.PI);
         }
+        #endregion
 
+        #region This method is used to store Field Metrix in sheet
         public static void GetFieldMatrix()
         {
             GetIBITestMapData();
             var ibiMapFile = System.IO.Path.GetFullPath("IBIMapData.kml").ToString();
+            string sheetName = "Field Matrix";
+
+            var service = CreateGoogleSheets(sheetName);
 
             FileStream fs = new FileStream(ibiMapFile, FileMode.Open, FileAccess.Read);
 
             List<FieldCordinates> fc = new List<FieldCordinates>();
             List<FieldCordinates> fieldCoordRes = new List<FieldCordinates>();
             FieldCordinates fcObj = new FieldCordinates();
-            #region Method 1
-            //XmlDataDocument xmldoc = new XmlDataDocument();
-            //XmlNodeList xmlnode;
-            //string str = "";
-            //xmldoc.Load(fs);
-            //xmlnode = xmldoc.GetElementsByTagName("Folder");
-            //foreach (XmlNode node in xmlnode)
-            //{
-            //    Console.WriteLine(node.SelectSingleNode("name").InnerText);
-            //    Console.WriteLine(node.SelectSingleNode("Polygon").InnerText);
-            //    Console.WriteLine(node.SelectSingleNode("coordinates").InnerText);
-            //}
-
-            //xmlnode = xmldoc.GetElementsByTagName("Folder");
-            //for (int i = 0; i <= xmlnode.Count - 1; i++)
-            //{
-            //    xmlnode[i].ChildNodes.Item(0).InnerText.Trim();
-            //    str = xmlnode[i].ChildNodes.Item(0).InnerText.Trim() + "  " + xmlnode[i].ChildNodes.Item(1).InnerText.Trim() + "  " + xmlnode[i].ChildNodes.Item(2).InnerText.Trim();
-
-            //}
-            #endregion
-
+            
             try
             {
                 // new xdoc instance 
@@ -591,9 +571,7 @@ namespace PoolScrapper
                         {
                             fcObj = new FieldCordinates();
                             fcObj.FieldName = locNode.FirstChild.InnerText.Trim();
-                            Console.WriteLine(locNode.FirstChild.InnerText.Trim());
                             // get the content of the loc node 
-                            //XmlNodeList xnl2 = xDoc.SelectNodes("/Folder/Placemark/Polygon/outerBoundaryIs/LinearRing");
 
                             if ((locNode.FirstChild.InnerText.Trim().ToLower()).IndexOf("field") != -1)
                             {
@@ -601,7 +579,6 @@ namespace PoolScrapper
                                 {
                                     //var name = childNode.GetElementsByTagName("name").ToString();
                                     //var cordinates = coordinates
-                                    Console.WriteLine(childNode.Name);
 
                                     if (childNode.Name == "Polygon")
                                     {
@@ -613,7 +590,6 @@ namespace PoolScrapper
                                                 {
                                                     if (lr.LocalName == "coordinates")
                                                     {
-                                                        Console.WriteLine(lr.InnerText.Trim());
                                                         fcObj.Coordinates = lr.InnerText.Trim();
                                                         fc.Add(fcObj);
                                                     }
@@ -624,7 +600,6 @@ namespace PoolScrapper
                                 }
                             }
                         }
-                        Console.WriteLine(fc);
                     }
                 }
                 foreach (var fieldObj in fc)
@@ -633,12 +608,15 @@ namespace PoolScrapper
                     fieldCoordRes.Add(fieldObj);
                 }
 
+                //Method to show header accordition to the dynamic data
+                //FieldMatrixHeaderData(service, sheetName, fieldCoordRes);
+
                 //The belowe method calculate distance between two fields using its coordinates
-                CalculateDistanceBetweenTwoFields(fieldCoordRes);
-                Console.WriteLine("a");
+                CalculateDistanceBetweenTwoFields(SortFieldData(fieldCoordRes), service);
             }
             catch (Exception ex) { }
         }
+        #endregion
 
         public static List<GeoCoordinateMap> MapFieldWithCoordinates(FieldCordinates fc)
         {
@@ -661,12 +639,12 @@ namespace PoolScrapper
             return geoCoordList;
         }
 
-        private static void CalculateDistanceBetweenTwoFields(List<FieldCordinates> fieldCoordRes)
+        #region This method calculate distance between two centroids of Polygon
+        private static void CalculateDistanceBetweenTwoFields(List<FieldCordinates> fieldCoordRes, SheetsService service)
         {
             int [,] fieldDistance = new int[fieldCoordRes.Count(), fieldCoordRes.Count()];
             string sheetName = "Field Matrix";
 
-            var service = CreateGoogleSheets(sheetName);
             try
             {
                 for (int i = 0; i < fieldCoordRes.Count(); i++)
@@ -711,13 +689,107 @@ namespace PoolScrapper
 
                 //string newRange = GetRange(service, sheetName);
 
-                UpdatGoogleSheetinBatch(objNewRecords, "1WEfGS-T8jQ31ENi9LQmOyzpp2U7eAX5gGT9-5NMwKzM", sheetName+"!B3:AI36", service);
+                UpdatGoogleSheetinBatch(objNewRecords, spreadSheetId, sheetName + "!B3:AI36", service);
                 #endregion
 
             }
             catch (Exception ex) { }
-            Console.WriteLine(fieldDistance);
         }
+        #endregion
+
+        private static void FieldMatrixHeaderData(SheetsService sheetsService, string sheetName, List<FieldCordinates> fieldCoordRes)
+        {
+            // The ID of the spreadsheet to update.
+            // TODO: Update placeholder value.
+
+            BatchUpdateSpreadsheetRequest bussr = new BatchUpdateSpreadsheetRequest();
+
+            //get sheet id by sheet name
+            Spreadsheet spr = sheetsService.Spreadsheets.Get(spreadSheetId).Execute();
+            Sheet sh = spr.Sheets.Where(s => s.Properties.Title == sheetName).FirstOrDefault();
+            int sheetId = (int)sh.Properties.SheetId;
+
+            //create the update request for cells from the first row
+            var userEnteredFormat = new CellFormat()
+            {
+                BackgroundColor = new Color()
+                {
+                    Blue = (float)0.933,
+                    Red = (float)0.393,
+                    Green = (float)0.586,
+                },
+                HorizontalAlignment = "CENTER",
+                TextFormat = new TextFormat()
+                {
+                    FontSize = 24,
+                    ForegroundColor = new Color()
+                    {
+                        Blue = 1,
+                        Red = 1,
+                        Green = 1,
+                    }
+                },
+            };
+
+            var updateCellsRequest = new Request()
+            {
+                RepeatCell = new RepeatCellRequest()
+                {
+                    Range = new GridRange()
+                    {
+                        SheetId = sheetId,
+                        StartRowIndex = 0,
+                        EndRowIndex = 1
+                    },
+                    Cell = new CellData()
+                    {
+                        UserEnteredFormat = userEnteredFormat
+                    },
+                    Fields = "UserEnteredFormat(BackgroundColor,TextFormat)"
+                }
+            };
+
+            //// TODO: Assign values to desired properties of `requestBody`:
+            bussr.Requests = new List<Request>();
+            bussr.Requests.Add(updateCellsRequest);
+
+            SpreadsheetsResource.BatchUpdateRequest request = sheetsService.Spreadsheets.BatchUpdate(bussr, spreadSheetId);
+
+            //// To execute asynchronously in an async method, replace `request.Execute()` as shown:
+            Data.BatchUpdateSpreadsheetResponse response = request.Execute();
+            //Data.BatchUpdateSpreadsheetResponse response = await request.ExecuteAsync();
+
+            // TODO: Change code below to process the `response` object:
+            //Console.WriteLine(JsonConvert.SerializeObject(response));
+        }
+
+        #region Method that sort FieldCordinates data list in ascending order of Field Name
+        private static List<FieldCordinates> SortFieldData(List<FieldCordinates> fieldCoordRes)
+        {
+            var sortField = fieldCoordRes.Where(x => (x.FieldName.ToLower()).StartsWith("field")).OrderBy(x => x.FieldName).ToList();
+            var sortVenueField = fieldCoordRes.Where(x => (x.FieldName.ToLower()).StartsWith("venue")).OrderBy(x => x.FieldName).ToList();
+
+            List<FieldCordinates> SortedFieldCoord = new List<FieldCordinates>();
+            FieldCordinates fcObj = new FieldCordinates();
+
+            for (int i = 1; i <= sortField.Count(); i++)
+            {
+                var sortedFieldData = fieldCoordRes.Where(x => x.FieldName.ToLower() == "field " + i.ToString()).OrderBy(x => x.FieldName).FirstOrDefault();
+                sortedFieldData.FieldName = i.ToString();
+                SortedFieldCoord.Add(sortedFieldData);
+            }
+
+            foreach (var venue in sortVenueField)
+            {
+                string[] fieldName;
+                fieldName = venue.FieldName.Split(' ');
+                string fieldNameInitial = fieldName[0].Substring(0, 1) + fieldName[1] + fieldName[3];
+                venue.FieldName = fieldNameInitial;
+                SortedFieldCoord.Add(venue);
+            }
+            return SortedFieldCoord;
+        }
+        #endregion
     }
 
     public class FieldCordinates
